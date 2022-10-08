@@ -3,6 +3,8 @@ A simple Java library for networking I made.
 Made mainly for the final project in 12th grade, but can be used in other applications.
 (Uses Gson, but does not require it to be added to the java project)
 
+Coded in Java 17.0.2, may run on older versions, but is yet to be tested, use at your own discretion.
+
 
 # Usage:
 - For Server:
