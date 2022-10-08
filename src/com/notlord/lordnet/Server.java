@@ -1,4 +1,4 @@
-package com.notlord;
+package com.notlord.lordnet;
 
 import com.google.gson.Gson;
 
@@ -40,6 +40,15 @@ public class Server extends Thread{
 	private void initialize() throws IOException {
 		socket = new ServerSocket(port);
 	}
+
+	/**
+	 * starts the server.
+	 */
+	@Override
+	public synchronized void start() {
+		super.start();
+	}
+
 
 	@Override
 	public void run(){
@@ -177,34 +186,5 @@ public class Server extends Thread{
 		public int getID(){
 			return id;
 		}
-	}
-
-
-	public static void main(String[] args) {
-		Server server = new Server(12345);
-		server.addListener(new ServerListener() {
-			@Override
-			public void clientConnect(ClientInstance client) {
-				System.out.println("Client Connect");
-			}
-
-			@Override
-			public void clientDisconnect(ClientInstance client) {
-				System.out.println("Client Disconnect");
-			}
-
-			@Override
-			public void serverClose() {
-				System.out.println("Server Close");
-			}
-
-			@Override
-			public void clientReceive(ClientInstance client, Object o) {
-				System.out.println("Client msg: "+o.toString());
-				client.send(o);
-			}
-		});
-		server.start();
-		server.stopServer();
 	}
 }

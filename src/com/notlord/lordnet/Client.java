@@ -1,4 +1,4 @@
-package com.notlord;
+package com.notlord.lordnet;
 
 import com.google.gson.Gson;
 
@@ -36,6 +36,14 @@ public class Client extends Thread{
 	 */
 	public void addListener(ClientListener listener){
 		listeners.add(listener);
+	}
+
+	/**
+	 * starts the client.
+	 */
+	@Override
+	public synchronized void start() {
+		super.start();
 	}
 
 	@Override
@@ -88,29 +96,5 @@ public class Client extends Thread{
 		writer.close();
 		reader.close();
 		socket.close();
-	}
-
-	public static void main(String[] args) throws IOException, InterruptedException {
-		Client client = new Client("localhost", 12345);
-		client.addListener(new ClientListener() {
-			@Override
-			public void connect() {
-				System.out.println("connect");
-			}
-
-			@Override
-			public void disconnect() {
-				System.out.println("disconnect");
-			}
-
-			@Override
-			public void receive(Object o) {
-				System.out.println("msg:"+o.toString());
-			}
-		});
-		client.start();
-		client.send(new ArrayList<>(List.of(1, 2, 3)));
-		Thread.sleep(1000);
-		client.close();
 	}
 }

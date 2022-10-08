@@ -1,4 +1,4 @@
-package com.notlord;
+package com.notlord.lordnet;
 
 public interface ServerListener {
 
