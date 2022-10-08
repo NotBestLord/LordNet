@@ -15,42 +15,56 @@ import java.util.List;
 public class Server extends Thread{
 	private final String separatorId = "GSON_SEPARATOR_ID";
 	private static final Gson gson = new Gson();
-	private final Thread thread = new Thread(this::serverClientConnectionHandle);
 	private boolean running = false;
 	private ServerSocket socket;
 	private final int port;
 	private final List<ServerListener> listeners = new ArrayList<>();
 	private final List<ClientInstance> clients = new ArrayList<>();
 	private int id = 0;
+
+	/**
+	 * creates a server.
+	 * @param port port the server listens to
+	 */
 	public Server(int port) {
 		this.port = port;
 	}
+
+	/**
+	 * adds a listener to the server.
+	 * @param l listener to add
+	 */
 	public void addListener(ServerListener l){
 		listeners.add(l);
 	}
-	public void initialize() throws IOException {
+	private void initialize() throws IOException {
 		socket = new ServerSocket(port);
-	}
-	public ServerSocket getSocket() {
-		return socket;
 	}
 
 	@Override
 	public void run(){
 		if(!running) {
 			running = true;
-			thread.start();
+			serverClientConnectionHandle();
 		}
 	}
 
-	public void stopServer() throws IOException {
+	/**
+	 * stops the server and closes all clients.
+	 */
+	public void stopServer() {
 		if(running) {
 			running = false;
-			for (ClientInstance client : clients) {
-				client.close();
+			try {
+				for (ClientInstance client : clients) {
+					client.close();
+				}
+				clients.clear();
+				socket.close();
 			}
-			clients.clear();
-			socket.close();
+			catch (Exception e){
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -95,7 +109,15 @@ public class Server extends Thread{
 		public final PrintWriter writer;
 		public final BufferedReader reader;
 		private final int id;
-		public ClientInstance(Server parentServer, Socket socket, int id) throws IOException {
+
+		/**
+		 * an instance of a client, on the server side.
+		 * @param parentServer the server the client instance is tied to.
+		 * @param socket the socket of the instance.
+		 * @param id the id of the instance.
+		 * @throws IOException thrown when an error with creating an input/output stream occurs.
+		 */
+		protected ClientInstance(Server parentServer, Socket socket, int id) throws IOException {
 			this.id = id;
 			this.parentServer = parentServer;
 			this.socket = socket;
@@ -134,16 +156,24 @@ public class Server extends Thread{
 			close();
 		}
 
+		/**
+		 * send a packet to the client the instance is connected to.
+		 * can send any object.
+		 */
 		public void send(Object o){
 			writer.println(gson.toJson(o) + parentServer.separatorId + o.getClass().toString().split(" ")[1]);
 		}
 
-		public void close() throws IOException {
+		private void close() throws IOException {
 			writer.close();
 			reader.close();
 			socket.close();
 		}
 
+		/**
+		 * get id of the instance.
+		 * every instance has a unique id.
+		 */
 		public int getID(){
 			return id;
 		}
@@ -175,5 +205,6 @@ public class Server extends Thread{
 			}
 		});
 		server.start();
+		server.stopServer();
 	}
 }

@@ -17,11 +17,23 @@ public class Client extends Thread{
 	private final PrintWriter writer;
 	private final BufferedReader reader;
 	private final List<ClientListener> listeners = new ArrayList<>();
+	private boolean running = true;
+
+	/**
+	 * creates a client.
+	 * @param host ip/dns address of the server.
+	 * @param port port of the server.
+	 * @throws IOException thrown if an error occurs when creating an input/output stream.
+	 */
 	public Client(String host, int port) throws IOException {
 		socket = new Socket(host, port);
 		writer = new PrintWriter(socket.getOutputStream(), true);
 		reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 	}
+
+	/**
+	 * add listener to the client.
+	 */
 	public void addListener(ClientListener listener){
 		listeners.add(listener);
 	}
@@ -55,13 +67,23 @@ public class Client extends Thread{
 				listeners.forEach(clientListener -> clientListener.receive(o));
 			}
 		}
+		if(running) close();
 	}
 
+	/**
+	 * send packet to the server.
+	 * can send any object.
+	 */
 	public void send(Object o) {
 		writer.println(gson.toJson(o) + separatorId + o.getClass().toString().split(" ")[1]);
 	}
 
+	/**
+	 * close the client.
+	 * @throws IOException thrown if an error occurs when closing input stream/output stream/socket.
+	 */
 	public void close() throws IOException {
+		running = false;
 		listeners.forEach(ClientListener::disconnect);
 		writer.close();
 		reader.close();
