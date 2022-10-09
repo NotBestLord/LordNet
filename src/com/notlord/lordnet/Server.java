@@ -11,9 +11,10 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class Server extends Thread{
-	private final String separatorId = "GSON_SEPARATOR_ID";
+	private final String separatorId = UUID.randomUUID() + "-sepId";
 	private static final Gson gson = new Gson();
 	private boolean running = false;
 	private ServerSocket socket;
@@ -61,7 +62,7 @@ public class Server extends Thread{
 	/**
 	 * stops the server and closes all clients.
 	 */
-	public void stopServer() {
+	public void close() {
 		if(running) {
 			running = false;
 			try {
@@ -145,6 +146,7 @@ public class Server extends Thread{
 
 		private void clientRunHandle() throws IOException, ClassNotFoundException {
 			String inputLine;
+			writer.println(parentServer.separatorId);
 			while (!socket.isClosed()){
 				try {
 					inputLine = reader.readLine();
@@ -158,8 +160,11 @@ public class Server extends Thread{
 				if (inputLine == null || ".".equals(inputLine)) {
 					break;
 				}
-				parentServer.clientInput(this,
-						gson.fromJson(inputLine.split(parentServer.separatorId)[0], Class.forName(inputLine.split(parentServer.separatorId)[1])));
+				try {
+					Object o = gson.fromJson(inputLine.split(parentServer.separatorId)[0], Class.forName(inputLine.split(parentServer.separatorId)[1]));
+					parentServer.clientInput(this, o);
+				}
+				catch (ClassNotFoundException ignored) {}
 			}
 			parentServer.clientDisconnect(this);
 			close();
