@@ -12,6 +12,7 @@ import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Server extends Thread{
 	private final String separatorId = UUID.randomUUID() + "-sepId";
@@ -20,7 +21,7 @@ public class Server extends Thread{
 	private ServerSocket socket;
 	private final int port;
 	private final List<ServerListener> listeners = new ArrayList<>();
-	private final List<ClientInstance> clients = new ArrayList<>();
+	private final List<ClientInstance> clients = new CopyOnWriteArrayList<>();
 	private int id = 0;
 
 	/**
