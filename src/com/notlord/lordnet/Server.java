@@ -116,8 +116,8 @@ public class Server extends Thread{
 	public static class ClientInstance extends Thread{
 		private final Server parentServer;
 		private final Socket socket;
-		public final PrintWriter writer;
-		public final BufferedReader reader;
+		private final PrintWriter writer;
+		private final BufferedReader reader;
 		private final int id;
 
 		/**
