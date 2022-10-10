@@ -13,6 +13,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static com.notlord.lordnet.Functions.fromPacketMessage;
+import static com.notlord.lordnet.Functions.toPacketMessage;
+
 public class Server extends Thread{
 	private final String separatorId = UUID.randomUUID() + "-sepId";
 	private static final Gson gson = new Gson();
@@ -104,6 +107,7 @@ public class Server extends Thread{
 	}
 
 	protected void clientConnect(ClientInstance clientSocket) throws IOException{
+		clientSocket.writer.println(separatorId);
 		clientSocket.start();
 		clients.add(clientSocket);
 		listeners.forEach((listener -> listener.clientConnect(clientSocket)));
@@ -176,7 +180,6 @@ public class Server extends Thread{
 
 		private void clientRunHandle() {
 			String inputLine;
-			writer.println(parentServer.separatorId);
 			while (!socket.isClosed()){
 				try {
 					inputLine = reader.readLine();
@@ -191,7 +194,7 @@ public class Server extends Thread{
 					break;
 				}
 				try {
-					Object o = gson.fromJson(inputLine.split(parentServer.separatorId)[0], Class.forName(inputLine.split(parentServer.separatorId)[1]));
+					Object o = gson.fromJson(fromPacketMessage(inputLine.split(parentServer.separatorId)[0]), Class.forName(inputLine.split(parentServer.separatorId)[1]));
 					parentServer.clientInput(this, o);
 				}
 				catch (ClassNotFoundException ignored) {}
@@ -205,7 +208,7 @@ public class Server extends Thread{
 		 * can send any object.
 		 */
 		public void send(Object o){
-			writer.println(gson.toJson(o) + parentServer.separatorId + o.getClass().toString().split(" ")[1]);
+			writer.println(toPacketMessage(gson.toJson(o)) + parentServer.separatorId + o.getClass().toString().split(" ")[1]);
 		}
 
 		public void close() {

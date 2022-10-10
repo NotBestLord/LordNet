@@ -10,6 +10,9 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.notlord.lordnet.Functions.toPacketMessage;
+import static com.notlord.lordnet.Functions.fromPacketMessage;
+
 public class Client extends Thread{
 	private volatile String separatorId = null;
 	private static final Gson gson = new Gson();
@@ -98,7 +101,7 @@ public class Client extends Thread{
 					break;
 				}
 				try {
-					Object o = gson.fromJson(inputLine.split(separatorId)[0], Class.forName(inputLine.split(separatorId)[1]));
+					Object o = gson.fromJson(fromPacketMessage(inputLine.split(separatorId)[0]), Class.forName(inputLine.split(separatorId)[1]));
 					listeners.forEach(clientListener -> clientListener.receive(o));
 				}
 				catch (ClassNotFoundException ignored){}
@@ -115,7 +118,7 @@ public class Client extends Thread{
 		while (separatorId == null) {
 			Thread.onSpinWait();
 		}
-		writer.println(gson.toJson(o) + separatorId + o.getClass().toString().split(" ")[1]);
+		writer.println(toPacketMessage(gson.toJson(o)) + separatorId + o.getClass().toString().split(" ")[1]);
 	}
 
 	/**
