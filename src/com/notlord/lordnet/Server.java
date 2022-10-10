@@ -41,6 +41,7 @@ public class Server extends Thread{
 	}
 	private void initialize() throws IOException {
 		socket = new ServerSocket(port);
+		running = true;
 	}
 
 	/**
@@ -55,7 +56,6 @@ public class Server extends Thread{
 	@Override
 	public void run(){
 		if(!running) {
-			running = true;
 			serverClientConnectionHandle();
 		}
 	}
@@ -110,8 +110,19 @@ public class Server extends Thread{
 		listeners.forEach((listener -> listener.clientReceive(clientSocket, o)));
 	}
 
+	/**
+	 * sends a packet to all connected clients.
+	 * @param o the packet
+	 */
 	public void sendAll(Object o){
 		clients.forEach(clientInstance -> clientInstance.send(o));
+	}
+
+	/**
+	 * returnes if the server is running.
+	 */
+	public boolean isRunning(){
+		return running;
 	}
 
 	public static class ClientInstance extends Thread{

@@ -17,7 +17,7 @@ public class Client extends Thread{
 	private PrintWriter writer;
 	private BufferedReader reader;
 	private final List<ClientListener> listeners = new ArrayList<>();
-	private boolean running = true;
+	private boolean running = false;
 	private String host;
 	private int port;
 
@@ -60,10 +60,12 @@ public class Client extends Thread{
 		socket = new Socket(host, port);
 		writer = new PrintWriter(socket.getOutputStream(), true);
 		reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+		running = true;
 	}
 
 	@Override
 	public void run() {
+		if(running) return;
 		try {
 			initialize();
 			handleClient();
@@ -137,5 +139,12 @@ public class Client extends Thread{
 				e.printStackTrace();
 			}
 		}
+	}
+
+	/**
+	 * returns if the client is connected to server
+	 */
+	public boolean isConnected(){
+		return running;
 	}
 }
