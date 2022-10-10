@@ -8,7 +8,6 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -111,7 +110,7 @@ public class Server extends Thread{
 	}
 
 	/**
-	 * sends a packet to all connected clients.
+	 * sends a packet to all client instances.
 	 * @param o the packet
 	 */
 	public void sendAll(Object o){
@@ -119,7 +118,21 @@ public class Server extends Thread{
 	}
 
 	/**
-	 * returnes if the server is running.
+	 * sends a packet to all client instances but the ones specified.
+	 * @param o the packet
+	 * @param excludedClients the client instances that should not receive the packet.
+	 */
+	public void sendAllExclude(Object o, ClientInstance... excludedClients){
+		List<ClientInstance> excludedInstances = new ArrayList<>(List.of(excludedClients));
+		clients.forEach(clientInstance -> {
+			if(!excludedInstances.contains(clientInstance)){
+				clientInstance.send(o);
+			}
+		});
+	}
+
+	/**
+	 * returns if the server is running.
 	 */
 	public boolean isRunning(){
 		return running;
@@ -131,7 +144,7 @@ public class Server extends Thread{
 		private final PrintWriter writer;
 		private final BufferedReader reader;
 		private final int id;
-
+		private boolean running = true;
 		/**
 		 * an instance of a client, on the server side.
 		 * @param parentServer the server the client instance is tied to.
@@ -149,21 +162,17 @@ public class Server extends Thread{
 
 		@Override
 		public void run() {
-			try {
-				clientRunHandle();
-			} catch (IOException | ClassNotFoundException e) {
-				e.printStackTrace();
-			}
+			clientRunHandle();
 		}
 
-		private void clientRunHandle() throws IOException, ClassNotFoundException {
+		private void clientRunHandle() {
 			String inputLine;
 			writer.println(parentServer.separatorId);
 			while (!socket.isClosed()){
 				try {
 					inputLine = reader.readLine();
 				}
-				catch (SocketException e) {
+				catch (Exception e) {
 					if(!e.getMessage().equals("Connection reset")){
 						e.printStackTrace();
 					}
@@ -190,10 +199,17 @@ public class Server extends Thread{
 			writer.println(gson.toJson(o) + parentServer.separatorId + o.getClass().toString().split(" ")[1]);
 		}
 
-		private void close() throws IOException {
-			writer.close();
-			reader.close();
-			socket.close();
+		public void close() {
+			if(!running) return;
+			try {
+				writer.close();
+				reader.close();
+				socket.close();
+			}
+			catch (Exception e){
+				e.printStackTrace();
+			}
+			running = false;
 		}
 
 		/**
