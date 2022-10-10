@@ -18,7 +18,7 @@ public class Server extends Thread{
 	private static final Gson gson = new Gson();
 	private boolean running = false;
 	private ServerSocket socket;
-	private final int port;
+	private int port;
 	private final List<ServerListener> listeners = new ArrayList<>();
 	private final List<ClientInstance> clients = new CopyOnWriteArrayList<>();
 	private int id = 0;
@@ -28,6 +28,13 @@ public class Server extends Thread{
 	 * @param port port the server listens to
 	 */
 	public Server(int port) {
+		this.port = port;
+	}
+
+	/**
+	 * set port of server
+	 */
+	public void setPort(int port) {
 		this.port = port;
 	}
 
