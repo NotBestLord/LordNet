@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class Client extends Thread{
-	private String separatorId = null;
+	private volatile String separatorId = null;
 	private static final Gson gson = new Gson();
 	private Socket socket;
 	private PrintWriter writer;
@@ -60,6 +60,13 @@ public class Client extends Thread{
 		socket = new Socket(host, port);
 		writer = new PrintWriter(socket.getOutputStream(), true);
 		reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+		try {
+			separatorId = reader.readLine();
+		}
+		catch (Exception e){
+			System.out.println("Failed to acquire separator Id from server");
+			e.printStackTrace();
+		}
 		running = true;
 	}
 
@@ -76,13 +83,6 @@ public class Client extends Thread{
 	protected void handleClient() throws IOException, ClassNotFoundException {
 		listeners.forEach(ClientListener::connect);
 		String inputLine;
-		try {
-			separatorId = reader.readLine();
-		}
-		catch (Exception e){
-			System.out.println("Failed to acquire separator Id from server");
-			e.printStackTrace();
-		}
 		while (!socket.isClosed()){
 			try {
 				inputLine = reader.readLine();
@@ -112,7 +112,9 @@ public class Client extends Thread{
 	 * can send any object.
 	 */
 	public void send(Object o) {
-		while (separatorId == null) {}
+		while (separatorId == null) {
+			Thread.onSpinWait();
+		}
 		writer.println(gson.toJson(o) + separatorId + o.getClass().toString().split(" ")[1]);
 	}
 

@@ -95,7 +95,9 @@ public class Server extends Thread{
 				clientConnect(new ClientInstance(this, socket.accept(), id));
 				id++;
 			} catch (IOException e) {
-				e.printStackTrace();
+				if(!e.getMessage().equals("Socket closed"))
+					e.printStackTrace();
+				break;
 			}
 		}
 		listeners.forEach(ServerListener::serverClose);
