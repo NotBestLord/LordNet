@@ -16,10 +16,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static com.notlord.lordnet.Functions.fromPacketMessage;
 import static com.notlord.lordnet.Functions.toPacketMessage;
 
-public class Server extends Thread{
+public class Server {
 	private final String separatorId = UUID.randomUUID() + "-sepId";
 	private static final Gson gson = new Gson();
-	private boolean running = false;
+	private volatile boolean running = false;
 	private ServerSocket socket;
 	private int port;
 	private final List<ServerListener> listeners = new ArrayList<>();
@@ -56,16 +56,10 @@ public class Server extends Thread{
 	/**
 	 * starts the server.
 	 */
-	@Override
-	public synchronized void start() {
-		super.start();
-	}
-
-
-	@Override
-	public void run(){
+	public void startServer(){
 		if(!running) {
-			serverClientConnectionHandle();
+			running = true;
+			new Thread(this::serverClientConnectionHandle,"Server").start();
 		}
 	}
 
@@ -89,16 +83,18 @@ public class Server extends Thread{
 	}
 
 	private void serverClientConnectionHandle() {
-		try{
+		try {
 			initialize();
+		} catch (IOException e) {
+			running = false;
+			e.printStackTrace();
 		}
-		catch (IOException e) {e.printStackTrace();}
-		while (running){
-			try{
+		while (running) {
+			try {
 				clientConnect(new ClientInstance(this, socket.accept(), id));
 				id++;
 			} catch (IOException e) {
-				if(!e.getMessage().equals("Socket closed"))
+				if (!e.getMessage().equals("Socket closed"))
 					e.printStackTrace();
 				break;
 			}
@@ -185,7 +181,7 @@ public class Server extends Thread{
 					inputLine = reader.readLine();
 				}
 				catch (Exception e) {
-					if(!e.getMessage().equals("Connection reset")){
+					if(!e.getMessage().equals("Connection reset") && !e.getMessage().equals("Socket closed")){
 						e.printStackTrace();
 					}
 					break;
@@ -212,16 +208,16 @@ public class Server extends Thread{
 		}
 
 		public void close() {
-			if(!running) return;
-			try {
-				writer.close();
-				reader.close();
-				socket.close();
+			if(running) {
+				try {
+					writer.close();
+					reader.close();
+					socket.close();
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				running = false;
 			}
-			catch (Exception e){
-				e.printStackTrace();
-			}
-			running = false;
 		}
 
 		/**

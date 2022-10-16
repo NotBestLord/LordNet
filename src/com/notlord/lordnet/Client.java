@@ -10,17 +10,17 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.notlord.lordnet.Functions.toPacketMessage;
 import static com.notlord.lordnet.Functions.fromPacketMessage;
+import static com.notlord.lordnet.Functions.toPacketMessage;
 
-public class Client extends Thread{
+public class Client {
 	private volatile String separatorId = null;
 	private static final Gson gson = new Gson();
 	private Socket socket;
 	private PrintWriter writer;
 	private BufferedReader reader;
 	private final List<ClientListener> listeners = new ArrayList<>();
-	private boolean running = false;
+	private volatile boolean running = false;
 	private String host;
 	private int port;
 
@@ -54,9 +54,22 @@ public class Client extends Thread{
 	/**
 	 * starts the client.
 	 */
-	@Override
-	public synchronized void start() {
-		super.start();
+	public void start(){
+		if(!running) {
+			running = true;
+			new Thread(this::run,"Client").start();
+		}
+	}
+
+	private void run(){
+		try {
+			initialize();
+			handleClient();
+		} catch (IOException | ClassNotFoundException e) {
+			if (!e.getMessage().equals("Connection refused: connect"))
+				e.printStackTrace();
+			running = false;
+		}
 	}
 
 	private void initialize() throws IOException{
@@ -68,18 +81,6 @@ public class Client extends Thread{
 		}
 		catch (Exception e){
 			System.out.println("Failed to acquire separator Id from server");
-			e.printStackTrace();
-		}
-		running = true;
-	}
-
-	@Override
-	public void run() {
-		if(running) return;
-		try {
-			initialize();
-			handleClient();
-		} catch (IOException | ClassNotFoundException e) {
 			e.printStackTrace();
 		}
 	}
