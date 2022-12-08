@@ -19,6 +19,10 @@ Coded in Java 17.0.2, may run on older versions, but is yet to be tested, use at
   3. Use Client.start();
   4. To Close use Client.close();
 
+- When Using "Secure" Version Of Server & Client:
+ - There Is No Difference In Use Of Normal Server-Client And Secure.
+ - Secure Is Encrypted (Using RSA), Which Makes It Safer.
+
 
 - Small warning: due to how Java works, immutible classes cannot be created from string, and as such cannot be sent, instead use extended classes.
   Example: List.of() returns an Immutible List and cannot be sent. Instead use new Arraylist<>(List.of()), which can be sent since arraylist is not immutible.
