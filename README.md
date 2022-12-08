@@ -20,8 +20,8 @@ Coded in Java 17.0.2, may run on older versions, but is yet to be tested, use at
   4. To Close use Client.close();
 
 - When Using "Secure" Version Of Server & Client:
-  A. There Is No Difference In Use Of Normal Server-Client And Secure.
-  B. Secure Is Encrypted (Using RSA), Which Makes It Safer.
+  . There Is No Difference In Use Of Normal Server-Client And Secure.
+  . Secure Is Encrypted (Using RSA), Which Makes It Safer.
 
 
 - Small warning: due to how Java works, immutible classes cannot be created from string, and as such cannot be sent, instead use extended classes.
