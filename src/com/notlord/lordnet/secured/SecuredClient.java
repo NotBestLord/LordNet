@@ -193,25 +193,4 @@ public class SecuredClient {
 	}
 
 
-	public static void main(String[] args) {
-		SecuredClient client = new SecuredClient("localhost",7777);
-		client.addListener(new ClientListener() {
-			@Override
-			public void connect() {
-				System.out.println("connected");
-				client.send("Your Mom is Gae");
-			}
-
-			@Override
-			public void disconnect() {
-				System.out.println("disconnected");
-			}
-
-			@Override
-			public void receive(Object o) {
-				System.out.println(o);
-			}
-		});
-		client.start();
-	}
 }

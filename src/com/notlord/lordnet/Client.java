@@ -3,23 +3,20 @@ package com.notlord.lordnet;
 import com.google.gson.Gson;
 import com.notlord.lordnet.listeners.ClientListener;
 
-import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-
-import static com.notlord.lordnet.Utilities.fromPacketMessage;
-import static com.notlord.lordnet.Utilities.toPacketMessage;
 
 public class Client {
 	private volatile String separatorId = null;
 	private static final Gson gson = new Gson();
 	private Socket socket;
-	private PrintWriter writer;
-	private BufferedReader reader;
+	private DataOutputStream writer;
+	private DataInputStream reader;
 	private final List<ClientListener> listeners = new ArrayList<>();
 	private volatile boolean running = false;
 	private String host;
@@ -75,10 +72,13 @@ public class Client {
 
 	private void initialize() throws IOException{
 		socket = new Socket(host, port);
-		writer = new PrintWriter(socket.getOutputStream(), true);
-		reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+		writer = new DataOutputStream(socket.getOutputStream());
+		reader = new DataInputStream(socket.getInputStream());
 		try {
-			separatorId = reader.readLine();
+			int l = reader.readInt();
+			byte[] bytes = new byte[l];
+			reader.readFully(bytes,0,l);
+			separatorId = new String(bytes, StandardCharsets.UTF_8);
 		}
 		catch (Exception e){
 			System.out.println("Failed to acquire separator Id from server");
@@ -87,26 +87,30 @@ public class Client {
 	}
 	protected void handleClient() throws IOException, ClassNotFoundException {
 		listeners.forEach(ClientListener::connect);
-		String inputLine;
+		byte[] bytes;
 		while (!socket.isClosed()){
 			try {
-				inputLine = reader.readLine();
+				int l = reader.readInt();
+				if(l > 0){
+					bytes = new byte[l];
+					reader.readFully(bytes,0,l);
+				}
+				else{
+					bytes = null;
+				}
 			}
 			catch (Exception e) {
-				if(!e.getMessage().equals("Socket closed") && !e.getMessage().equals("Connection reset")){
+				if(e.getMessage() != null && !e.getMessage().equals("Connection reset") && !e.getMessage().equals("Socket closed")){
 					e.printStackTrace();
 				}
 				break;
 			}
-			if(inputLine != null) {
-				if (".".equals(inputLine)) {
-					break;
-				}
+			if(bytes != null) {
 				try {
-					Object o = gson.fromJson(fromPacketMessage(inputLine.split(separatorId)[0]), Class.forName(inputLine.split(separatorId)[1]));
+					String input = new String(bytes, StandardCharsets.UTF_8);
+					Object o = gson.fromJson(input.split(separatorId)[0], Class.forName(input.split(separatorId)[1]));
 					listeners.forEach(clientListener -> clientListener.receive(o));
-				}
-				catch (ClassNotFoundException ignored){}
+				} catch (ClassNotFoundException ignored) {}
 			}
 		}
 		if(running) close();
@@ -120,7 +124,14 @@ public class Client {
 		while (separatorId == null) {
 			Thread.onSpinWait();
 		}
-		writer.println(toPacketMessage(gson.toJson(o)) + separatorId + o.getClass().toString().split(" ")[1]);
+		byte[] bytes = (gson.toJson(o) + separatorId + o.getClass().toString().split(" ")[1]).getBytes(StandardCharsets.UTF_8);
+		try {
+			writer.writeInt(bytes.length);
+			writer.write(bytes);
+		}
+		catch (IOException e){
+			e.printStackTrace();
+		}
 	}
 
 	/**
@@ -130,8 +141,8 @@ public class Client {
 		if(running) {
 			running = false;
 			listeners.forEach(ClientListener::disconnect);
-			writer.close();
 			try {
+				writer.close();
 				reader.close();
 			}
 			catch (IOException e){

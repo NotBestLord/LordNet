@@ -3,19 +3,16 @@ package com.notlord.lordnet;
 import com.google.gson.Gson;
 import com.notlord.lordnet.listeners.ServerListener;
 
-import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
-
-import static com.notlord.lordnet.Utilities.fromPacketMessage;
-import static com.notlord.lordnet.Utilities.toPacketMessage;
 
 public class Server {
 	private final String separatorId = UUID.randomUUID() + "-sepId";
@@ -104,7 +101,9 @@ public class Server {
 	}
 
 	protected void clientConnect(ClientInstance clientSocket) throws IOException{
-		clientSocket.writer.println(separatorId);
+		byte[] bytes = separatorId.getBytes(StandardCharsets.UTF_8);
+		clientSocket.writer.writeInt(bytes.length);
+		clientSocket.writer.write(bytes);
 		clientSocket.start();
 		clients.add(clientSocket);
 		listeners.forEach((listener -> listener.clientConnect(clientSocket)));
@@ -151,8 +150,8 @@ public class Server {
 	public static class ClientInstance extends Thread implements IClientInstance{
 		private final Server parentServer;
 		private final Socket socket;
-		private final PrintWriter writer;
-		private final BufferedReader reader;
+		private final DataOutputStream writer;
+		private final DataInputStream reader;
 		private final int id;
 		private boolean running = true;
 		/**
@@ -166,8 +165,8 @@ public class Server {
 			this.id = id;
 			this.parentServer = parentServer;
 			this.socket = socket;
-			writer = new PrintWriter(socket.getOutputStream(), true);
-			reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			writer = new DataOutputStream(socket.getOutputStream());
+			reader = new DataInputStream(socket.getInputStream());
 		}
 
 		@Override
@@ -176,10 +175,17 @@ public class Server {
 		}
 
 		private void clientRunHandle() {
-			String inputLine;
+			byte[] bytes;
 			while (!socket.isClosed()){
 				try {
-					inputLine = reader.readLine();
+					int l = reader.readInt();
+					if(l > 0){
+						bytes = new byte[l];
+						reader.readFully(bytes,0,l);
+					}
+					else{
+						bytes = null;
+					}
 				}
 				catch (Exception e) {
 					if(!e.getMessage().equals("Connection reset") && !e.getMessage().equals("Socket closed")){
@@ -187,14 +193,13 @@ public class Server {
 					}
 					break;
 				}
-				if (inputLine == null || ".".equals(inputLine)) {
-					break;
+				if(bytes != null) {
+					try {
+						String input = new String(bytes, StandardCharsets.UTF_8);
+						Object o = gson.fromJson(input.split(parentServer.separatorId)[0], Class.forName(input.split(parentServer.separatorId)[1]));
+						parentServer.clientInput(this, o);
+					} catch (ClassNotFoundException ignored) {}
 				}
-				try {
-					Object o = gson.fromJson(fromPacketMessage(inputLine.split(parentServer.separatorId)[0]), Class.forName(inputLine.split(parentServer.separatorId)[1]));
-					parentServer.clientInput(this, o);
-				}
-				catch (ClassNotFoundException ignored) {}
 			}
 			parentServer.clientDisconnect(this);
 			close();
@@ -205,7 +210,14 @@ public class Server {
 		 * can send any object.
 		 */
 		public void send(Object o){
-			writer.println(toPacketMessage(gson.toJson(o)) + parentServer.separatorId + o.getClass().toString().split(" ")[1]);
+			byte[] bytes = (gson.toJson(o) + parentServer.separatorId + o.getClass().toString().split(" ")[1]).getBytes(StandardCharsets.UTF_8);
+			try {
+				writer.writeInt(bytes.length);
+				writer.write(bytes);
+			}
+			catch (IOException e){
+				e.printStackTrace();
+			}
 		}
 
 		public void close() {

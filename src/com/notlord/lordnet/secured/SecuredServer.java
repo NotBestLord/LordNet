@@ -272,32 +272,4 @@ public class SecuredServer {
 		}
 	}
 
-	public static void main(String[] args) throws InterruptedException {
-		SecuredServer server = new SecuredServer(7777);
-		server.addListener(new ServerListener() {
-			@Override
-			public void clientConnect(IClientInstance client) {
-				System.out.println(client.getID());
-			}
-
-			@Override
-			public void clientReceive(IClientInstance client, Object o) {
-				System.out.println(client.getID()+":"+o);
-				client.send(new ArrayList<>(List.of(1,2,3,"bruh")));
-			}
-
-			@Override
-			public void clientDisconnect(IClientInstance client) {
-				System.out.println("dis"+client.getID());
-			}
-
-			@Override
-			public void serverClose() {
-				System.out.println("closed");
-			}
-		});
-		server.start();
-		Thread.sleep(20000);
-		server.close();
-	}
 }
