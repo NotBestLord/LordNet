@@ -1,6 +1,6 @@
 package com.notlord.lordnet;
 
-public class Functions {
+public class Utilities {
 	protected static String toPacketMessage(String string){
 		return string.replace("{","\\{").replace("}","\\}")
 				.replace("[","\\[").replace("]","\\]").replace("$","\\$");

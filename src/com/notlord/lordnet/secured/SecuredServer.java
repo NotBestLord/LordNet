@@ -1,24 +1,30 @@
-package com.notlord.lordnet;
+package com.notlord.lordnet.secured;
 
 import com.google.gson.Gson;
+import com.notlord.lordnet.IClientInstance;
 import com.notlord.lordnet.listeners.ServerListener;
 
-import java.io.BufferedReader;
+import javax.crypto.BadPaddingException;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-import static com.notlord.lordnet.Utilities.fromPacketMessage;
-import static com.notlord.lordnet.Utilities.toPacketMessage;
+import static com.notlord.lordnet.secured.SecuredUtilities.decryptPacketMessage;
+import static com.notlord.lordnet.secured.SecuredUtilities.encryptPacketMessage;
 
-public class Server {
-	private final String separatorId = UUID.randomUUID() + "-sepId";
+public class SecuredServer {
+	private final String separatorId = UUID.randomUUID() + "-si";
 	private static final Gson gson = new Gson();
 	private volatile boolean running = false;
 	private ServerSocket socket;
@@ -26,12 +32,14 @@ public class Server {
 	private final List<ServerListener> listeners = new ArrayList<>();
 	private final List<ClientInstance> clients = new CopyOnWriteArrayList<>();
 	private int id = 0;
+	private PrivateKey privateKey;
+	private PublicKey publicKey;
 
 	/**
 	 * creates a server.
 	 * @param port port the server listens to
 	 */
-	public Server(int port) {
+	public SecuredServer(int port) {
 		this.port = port;
 	}
 
@@ -49,9 +57,14 @@ public class Server {
 	public void addListener(ServerListener l){
 		listeners.add(l);
 	}
-	private void initialize() throws IOException {
+	private void initialize() throws IOException, NoSuchAlgorithmException {
 		socket = new ServerSocket(port);
 		running = true;
+		KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+		generator.initialize(2048);
+		KeyPair pair = generator.generateKeyPair();
+		privateKey = pair.getPrivate();
+		publicKey = pair.getPublic();
 	}
 
 	/**
@@ -86,13 +99,13 @@ public class Server {
 	private void serverClientConnectionHandle() {
 		try {
 			initialize();
-		} catch (IOException e) {
+		} catch (IOException | NoSuchAlgorithmException e) {
 			running = false;
 			e.printStackTrace();
 		}
 		while (running) {
 			try {
-				clientConnect(new ClientInstance(this, socket.accept(), id));
+				clientConnect(new ClientInstance(this,privateKey,socket.accept(), id));
 				id++;
 			} catch (IOException e) {
 				if (!e.getMessage().equals("Socket closed"))
@@ -104,7 +117,10 @@ public class Server {
 	}
 
 	protected void clientConnect(ClientInstance clientSocket) throws IOException{
-		clientSocket.writer.println(separatorId);
+		clientSocket.writer.writeInt(separatorId.getBytes(StandardCharsets.UTF_8).length);
+		clientSocket.writer.write(separatorId.getBytes(StandardCharsets.UTF_8));
+		clientSocket.writer.writeInt(publicKey.getEncoded().length);
+		clientSocket.writer.write(publicKey.getEncoded());
 		clientSocket.start();
 		clients.add(clientSocket);
 		listeners.forEach((listener -> listener.clientConnect(clientSocket)));
@@ -148,13 +164,15 @@ public class Server {
 		return running;
 	}
 
-	public static class ClientInstance extends Thread implements IClientInstance{
-		private final Server parentServer;
+	public static class ClientInstance extends Thread implements IClientInstance {
+		private final SecuredServer parentServer;
 		private final Socket socket;
-		private final PrintWriter writer;
-		private final BufferedReader reader;
+		private final DataOutputStream writer;
+		private final DataInputStream reader;
+		private final PrivateKey privateKey;
 		private final int id;
 		private boolean running = true;
+		private PublicKey publicKey;
 		/**
 		 * an instance of a client, on the server side.
 		 * @param parentServer the server the client instance is tied to.
@@ -162,12 +180,20 @@ public class Server {
 		 * @param id the id of the instance.
 		 * @throws IOException thrown when an error with creating an input/output stream occurs.
 		 */
-		protected ClientInstance(Server parentServer, Socket socket, int id) throws IOException {
+		protected ClientInstance(SecuredServer parentServer, PrivateKey privateKey, Socket socket, int id) throws IOException {
 			this.id = id;
 			this.parentServer = parentServer;
 			this.socket = socket;
-			writer = new PrintWriter(socket.getOutputStream(), true);
-			reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+			this.privateKey = privateKey;
+			writer = new DataOutputStream(socket.getOutputStream());
+			reader = new DataInputStream(socket.getInputStream());
+			try {
+				int l = reader.readInt();
+				byte[] bytes = new byte[l];
+				reader.readFully(bytes,0,l);
+				publicKey = KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(bytes));
+			}
+			catch (Exception ignored) {}
 		}
 
 		@Override
@@ -176,10 +202,17 @@ public class Server {
 		}
 
 		private void clientRunHandle() {
-			String inputLine;
+			byte[] bytes;
 			while (!socket.isClosed()){
 				try {
-					inputLine = reader.readLine();
+					int l = reader.readInt();
+					if(l > 0) {
+						bytes = new byte[l];
+						reader.readFully(bytes,0,l);
+					}
+					else{
+						bytes = null;
+					}
 				}
 				catch (Exception e) {
 					if(!e.getMessage().equals("Connection reset") && !e.getMessage().equals("Socket closed")){
@@ -187,14 +220,17 @@ public class Server {
 					}
 					break;
 				}
-				if (inputLine == null || ".".equals(inputLine)) {
-					break;
+				if (bytes != null) {
+					try {
+						String decrypted = decryptPacketMessage(privateKey,bytes);
+						Object o = gson.fromJson(decrypted.split(parentServer.separatorId)[0], Class.forName(decrypted.split(parentServer.separatorId)[1]));
+						parentServer.clientInput(this, o);
+					}
+					catch (ClassNotFoundException ignored) {}
+					catch (NoSuchPaddingException | IllegalBlockSizeException | NoSuchAlgorithmException | BadPaddingException | InvalidKeyException e) {
+						e.printStackTrace();
+					}
 				}
-				try {
-					Object o = gson.fromJson(fromPacketMessage(inputLine.split(parentServer.separatorId)[0]), Class.forName(inputLine.split(parentServer.separatorId)[1]));
-					parentServer.clientInput(this, o);
-				}
-				catch (ClassNotFoundException ignored) {}
 			}
 			parentServer.clientDisconnect(this);
 			close();
@@ -205,7 +241,13 @@ public class Server {
 		 * can send any object.
 		 */
 		public void send(Object o){
-			writer.println(toPacketMessage(gson.toJson(o)) + parentServer.separatorId + o.getClass().toString().split(" ")[1]);
+			try {
+				byte[] bytes = encryptPacketMessage(publicKey,(gson.toJson(o) + parentServer.separatorId + o.getClass().toString().split(" ")[1]).getBytes(StandardCharsets.UTF_8));
+				writer.writeInt(bytes.length);
+				writer.write(bytes);
+			} catch (NoSuchPaddingException | NoSuchAlgorithmException | IllegalBlockSizeException | BadPaddingException | InvalidKeyException | IOException e) {
+				e.printStackTrace();
+			}
 		}
 
 		public void close() {
@@ -228,5 +270,34 @@ public class Server {
 		public int getID(){
 			return id;
 		}
+	}
+
+	public static void main(String[] args) throws InterruptedException {
+		SecuredServer server = new SecuredServer(7777);
+		server.addListener(new ServerListener() {
+			@Override
+			public void clientConnect(IClientInstance client) {
+				System.out.println(client.getID());
+			}
+
+			@Override
+			public void clientReceive(IClientInstance client, Object o) {
+				System.out.println(client.getID()+":"+o);
+				client.send(new ArrayList<>(List.of(1,2,3,"bruh")));
+			}
+
+			@Override
+			public void clientDisconnect(IClientInstance client) {
+				System.out.println("dis"+client.getID());
+			}
+
+			@Override
+			public void serverClose() {
+				System.out.println("closed");
+			}
+		});
+		server.start();
+		Thread.sleep(20000);
+		server.close();
 	}
 }

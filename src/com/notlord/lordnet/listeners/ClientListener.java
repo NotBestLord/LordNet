@@ -1,4 +1,4 @@
-package com.notlord.lordnet;
+package com.notlord.lordnet.listeners;
 
 public interface ClientListener {
 	void connect();

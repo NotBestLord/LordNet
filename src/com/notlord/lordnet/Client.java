@@ -1,6 +1,7 @@
 package com.notlord.lordnet;
 
 import com.google.gson.Gson;
+import com.notlord.lordnet.listeners.ClientListener;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -10,8 +11,8 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.notlord.lordnet.Functions.fromPacketMessage;
-import static com.notlord.lordnet.Functions.toPacketMessage;
+import static com.notlord.lordnet.Utilities.fromPacketMessage;
+import static com.notlord.lordnet.Utilities.toPacketMessage;
 
 public class Client {
 	private volatile String separatorId = null;
