@@ -1,4 +1,5 @@
 # LordNet
+As of now, version 2.0 does not work at all, you have been warned.
 A simple Java library for networking I made. 
 Made mainly for the final project in 12th grade, but can be used in other applications.
 (Uses Gson, but does not require it to be added to the java project)
